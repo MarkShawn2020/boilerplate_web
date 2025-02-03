@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
+import JoinSVG from '@/public/join.svg'
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -47,6 +48,7 @@ export default async function RootLayout({
                       className="flex items-center gap-2 text-lg md:text-base font-semibold hover:opacity-70 transition-opacity"
                     >
                       <Logo mode="svg" className="h-8 w-auto" color="currentColor" />
+                      <JoinSVG />
                       <span>EnvBox</span>
                     </Link>
                     <DeployButton />
