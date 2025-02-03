@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 import { authenticate } from '../middleware/auth';
 
 export const router = Router();
@@ -15,22 +15,16 @@ const keySchema = z.object({
 // List all keys for the authenticated user
 router.get('/', authenticate, async (req, res) => {
   try {
-    const keys = await prisma.key.findMany({
-      where: { userId: req.user.id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        tags: true,
-        createdAt: true,
-        updatedAt: true,
-        // Don't send the actual value
-        value: false,
-      },
-    });
+    const { data: keys, error } = await supabase
+      .from('keys')
+      .select('id, name, description, tags, created_at, updated_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
     res.json(keys);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -38,12 +32,17 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const data = keySchema.parse(req.body);
-    const key = await prisma.key.create({
-      data: {
+    
+    const { data: key, error } = await supabase
+      .from('keys')
+      .insert({
         ...data,
-        userId: req.user.id,
-      },
-    });
+        user_id: req.user.id,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
     res.status(201).json(key);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -56,24 +55,15 @@ router.post('/', authenticate, async (req, res) => {
 // Revoke a key
 router.post('/:id/revoke', authenticate, async (req, res) => {
   try {
-    const key = await prisma.key.findFirst({
-      where: {
-        id: req.params.id,
-        userId: req.user.id,
-      },
-    });
+    const { error } = await supabase
+      .from('keys')
+      .update({ revoked: true })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id);
 
-    if (!key) {
-      return res.status(404).json({ error: 'Key not found' });
-    }
-
-    await prisma.key.update({
-      where: { id: req.params.id },
-      data: { revoked: true },
-    });
-
+    if (error) throw error;
     res.json({ message: 'Key revoked successfully' });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });

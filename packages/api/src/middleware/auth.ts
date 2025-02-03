@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { prisma } from '../lib/prisma';
+import { supabase } from '../lib/supabase';
 
 declare global {
   namespace Express {
@@ -23,17 +22,10 @@ export const authenticate = async (
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'default-secret'
-    ) as { userId: string };
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-    });
-
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     req.user = { id: user.id };
